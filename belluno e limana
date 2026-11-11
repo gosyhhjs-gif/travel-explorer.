@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Travel Explorer</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+html,body,#map{height:100%;margin:0;font-family:sans-serif}
+#filtri{position:absolute;top:10px;left:10px;right:10px;z-index:1000;display:flex;gap:6px;overflow-x:auto}
+#filtri button{border:0;border-radius:20px;padding:8px 14px;background:#fff;color:#222;box-shadow:0 1px 4px #0005;font-size:15px;white-space:nowrap}
+#filtri button.on{background:#1b7f5c;color:#fff}
+#stato{position:absolute;bottom:24px;left:10px;z-index:1000;background:#fff;color:#222;padding:6px 12px;border-radius:14px;box-shadow:0 1px 4px #0005;font-size:14px}
+.pin{font-size:24px;text-align:center}
+</style>
+</head>
+<body>
+<div id="filtri"></div>
+<div id="map"></div>
+<div id="stato"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const map = L.map('map').setView([46.12, 12.17], 12);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  {attribution: '© OpenStreetMap'}).addTo(map);
+
+const cats = {ristoranti:'🍴', hotel:'🛏️', rifugi:'🏠', parcheggi:'🅿️', panorami:'📷'};
+const layer = L.layerGroup().addTo(map);
+const stato = document.getElementById('stato');
+let places = [];
+
+function esc(s) {
+  return s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+function categoria(t) {
+  if (['restaurant','bar','cafe','pub'].includes(t.amenity)) return 'ristoranti';
+  if (['alpine_hut','wilderness_hut'].includes(t.tourism)) return 'rifugi';
+  if (['hotel','guest_house','hostel','apartment'].includes(t.tourism)) return 'hotel';
+  if (t.amenity === 'parking') return 'parcheggi';
+  if (t.tourism === 'viewpoint') return 'panorami';
+  return null;
+}
+
+function mostra(cat) {
+  layer.clearLayers();
+  const lista = places.filter(p => cat === 'tutti' || p.cat === cat);
+  lista.forEach(p => {
+    const icon = L.divIcon({html: cats[p.cat], className: 'pin', iconSize: [30, 30]});
+    L.marker([p.lat, p.lng], {icon}).addTo(layer)
+      .bindPopup('<b>' + esc(p.nome) + '</b><br>' + p.cat);
+  });
+  document.querySelectorAll('#filtri button').forEach(b =>
+    b.classList.toggle('on', b.dataset.cat === cat));
+  stato.textContent = lista.length + ' luoghi';
+}
+
+const box = document.getElementById('filtri');
+['tutti', ...Object.keys(cats)].forEach(c => {
+  const b = document.createElement('button');
+  b.dataset.cat = c;
+  b.textContent = (cats[c] || '🗺️') + ' ' + c;
+  b.onclick = () => mostra(c);
+  box.appendChild(b);
+});
+
+async function carica() {
+  stato.textContent = 'Carico i luoghi...';
+  const q = `[out:json][timeout:25];
+(area["name"="Belluno"]["boundary"="administrative"]["admin_level"="8"];
+ area["name"="Limana"]["boundary"="administrative"]["admin_level"="8"];)->.a;
+(nwr["amenity"~"^(restaurant|bar|cafe|pub)$"](area.a);
+ nwr["tourism"~"^(hotel|guest_house|hostel|apartment|alpine_hut|wilderness_hut)$"](area.a);
+ nwr["amenity"="parking"](area.a);
+ nwr["tourism"="viewpoint"](area.a););
+out center 600;`;
+  try {
+    const r = await fetch('https://overpass-api.de/api/interpreter',
+      {method: 'POST', body: 'data=' + encodeURIComponent(q)});
+    const d = await r.json();
+    places = d.elements.map(e => {
+      const t = e.tags || {};
+      const c = categoria(t);
+      const lat = e.lat ?? (e.center && e.center.lat);
+      const lng = e.lon ?? (e.center && e.center.lon);
+      const nome = t.name || (c === 'parcheggi' ? 'Parcheggio' : null);
+      if (!c || lat == null || !nome) return null;
+      return {nome, cat: c, lat, lng};
+    }).filter(Boolean);
+    mostra('tutti');
+    if (places.length) map.fitBounds(places.map(p => [p.lat, p.lng]), {padding: [40, 40]});
+  } catch (e) {
+    stato.textContent = 'Impossibile caricare i luoghi. Riprova più tardi.';
+  }
+}
+carica();
+</script>
+</body>
+</html>
