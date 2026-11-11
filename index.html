@@ -33,3 +33,28 @@ const places = [
   {nome:'Passo Giau', cat:'panorami', lat:46.4837, lng:12.0516},
   {nome:'Lago di Misurina', cat:'panorami', lat:46.5845, lng:12.2530}
 ];
+const layer = L.layerGroup().addTo(map);
+
+function mostra(cat) {
+  layer.clearLayers();
+  places.filter(p => cat === 'tutti' || p.cat === cat).forEach(p => {
+    const icon = L.divIcon({html: cats[p.cat], className: 'pin', iconSize: [30, 30]});
+    L.marker([p.lat, p.lng], {icon}).addTo(layer)
+      .bindPopup('<b>' + p.nome + '</b><br>' + p.cat);
+  });
+  document.querySelectorAll('#filtri button').forEach(b =>
+    b.classList.toggle('on', b.dataset.cat === cat));
+}
+
+const box = document.getElementById('filtri');
+['tutti', ...Object.keys(cats)].forEach(c => {
+  const b = document.createElement('button');
+  b.dataset.cat = c;
+  b.textContent = (cats[c] || '🗺️') + ' ' + c;
+  b.onclick = () => mostra(c);
+  box.appendChild(b);
+});
+mostra('tutti');
+</script>
+</body>
+</html>
