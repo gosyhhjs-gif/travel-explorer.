@@ -1,2 +1,61 @@
-# travel-explorer
-App turistica per le Dolomiti Bellunesi: mappa, rifugi, sentieri e itinerari
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Travel Explorer</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+html,body,#map{height:100%;margin:0;font-family:sans-serif}
+#filtri{position:absolute;top:10px;left:10px;right:10px;z-index:1000;display:flex;gap:6px;overflow-x:auto}
+#filtri button{border:0;border-radius:20px;padding:8px 14px;background:#fff;box-shadow:0 1px 4px #0005;font-size:15px;white-space:nowrap}
+#filtri button.on{background:#1b7f5c;color:#fff}
+.pin{font-size:24px;text-align:center}
+</style>
+</head>
+<body>
+<div id="filtri"></div>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const map = L.map('map').setView([46.4, 12.2], 9);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  {attribution: '© OpenStreetMap'}).addTo(map);
+
+const cats = {ristoranti:'🍴', hotel:'🛏️', rifugi:'🏠', parcheggi:'🅿️', panorami:'📷'};
+
+const places = [
+  {nome:'Ristorante (esempio) - Belluno', cat:'ristoranti', lat:46.1405, lng:12.2150},
+  {nome:'Bar (esempio) - Cortina', cat:'ristoranti', lat:46.5400, lng:12.1350},
+  {nome:'Hotel (esempio) - Alleghe', cat:'hotel', lat:46.4110, lng:12.0170},
+  {nome:'Rifugio Auronzo', cat:'rifugi', lat:46.6126, lng:12.2976},
+  {nome:'Parcheggio (esempio) - Misurina', cat:'parcheggi', lat:46.5840, lng:12.2540},
+  {nome:'Passo Giau', cat:'panorami', lat:46.4837, lng:12.0516},
+  {nome:'Lago di Misurina', cat:'panorami', lat:46.5845, lng:12.2530}
+];
+
+const layer = L.layerGroup().addTo(map);
+
+function mostra(cat) {
+  layer.clearLayers();
+  places.filter(p => cat === 'tutti' || p.cat === cat).forEach(p => {
+    const icon = L.divIcon({html: cats[p.cat], className: 'pin', iconSize: [30, 30]});
+    L.marker([p.lat, p.lng], {icon}).addTo(layer)
+      .bindPopup('<b>' + p.nome + '</b><br>' + p.cat);
+  });
+  document.querySelectorAll('#filtri button').forEach(b =>
+    b.classList.toggle('on', b.dataset.cat === cat));
+}
+
+const box = document.getElementById('filtri');
+['tutti', ...Object.keys(cats)].forEach(c => {
+  const b = document.createElement('button');
+  b.dataset.cat = c;
+  b.textContent = (cats[c] || '🗺️') + ' ' + c;
+  b.onclick = () => mostra(c);
+  box.appendChild(b);
+});
+mostra('tutti');
+</script>
+</body>
+</html>
